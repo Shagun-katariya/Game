@@ -10,8 +10,11 @@ dotenv.config({ path: envPath });
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const User = require('../dal/models/user.js')
+const Game = require('../dal/models/game-schedule')
 const twilio = require('twilio');
 const twilioConfig = require('../twilioConfig');
+const cron = require('node-cron');
+
 
 let userProfile;
 
@@ -61,17 +64,17 @@ router.get('/', authenticateToken, async (req, res) => {
 })
 
 //for Main menu screen
-router.get('/main-menu', async(req,res)=>{
+router.get('/main-menu', async (req, res) => {
   // res.render('main-menu');
 })
 
 //for Main help button
-router.get('/help', async(req,res)=>{
+router.get('/help', async (req, res) => {
   // res.render('help');
 })
 
 //for Main setting 
-router.get('/setting', async(req,res)=>{
+router.get('/setting', async (req, res) => {
   // res.render('setting');
 })
 
@@ -149,7 +152,7 @@ router.post('/verifyotp', async (req, res) => {
     if (otp === otpStorage[email]) {
       const hashedPassword = await bcrypt.hash(user.password, 10);
       user.password = hashedPassword;
-      delete otpStorage[email]; 
+      delete otpStorage[email];
       await user.save();
 
       const token = jwt.sign({ userId: user._id }, process.env.SESSION_SECRET, {
@@ -231,5 +234,101 @@ router.get('/signout', (req, res) => {
     res.status(400).send({ message: 'Failed to sign out user' });
   }
 });
+
+
+
+
+// Schedule the game every Tuesday at 7 PM
+cron.schedule('0 19 * * 2', () => {
+  const newGame = new Game({
+    date: new Date(),
+    maxPlayers: 5000,
+    gridSize: 5, // Set a default grid size (5x5)
+    registeredPlayers: [],
+  });
+
+  newGame.registeredPlayers.forEach((player) => {
+    player.grid = generateRandomGrid(newGame.gridSize);
+  });
+
+  newGame.save((err, game) => {
+    if (err) {
+      console.error(err);
+    } else {
+      console.log(`New game scheduled for ${game.date}`);
+    }
+  });
+});
+
+
+// Generate a random m*m grid of unique numbers within a specified range
+function generateRandomGrid(m, min = 1, max = 99) {
+  const numbers = [];
+
+  for (let i = min; i <= max; i++) {
+    numbers.push(i);
+  }
+
+  for (let i = numbers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [numbers[i], numbers[j]] = [numbers[j], numbers[i]];
+  }
+
+  const grid = [];
+  let index = 0;
+  for (let i = 0; i < m; i++) {
+    const row = [];
+    for (let j = 0; j < m; j++) {
+      row.push(numbers[index]);
+      index++;
+    }
+    grid.push(row);
+  }
+
+  return grid;
+}
+
+
+router.post('/register', async (req, res) => {
+  const { email } = req.body;
+  const latestGame = await Game.findOne({}, {}, { sort: { date: -1 } });
+
+  if (!latestGame) {
+    return res.status(400).json({ message: 'No game scheduled.' });
+  }
+
+  if (latestGame.registeredPlayers.length >= latestGame.maxPlayers) {
+    return res.status(400).json({ message: 'Participation is full for this week. You can watch live to win a prize.' });
+  }
+
+  const grid = generateRandomGrid(5); // Generates a 5x5 grid by default
+
+  latestGame.registeredPlayers.push({
+    email,
+    grid,
+  });
+
+  latestGame.save();
+
+  res.status(200).json({ message: 'Successfully registered for the game.' });
+});
+
+
+// Admin API endpoint to update the grid size
+app.put('/admin/updateGridSize', async (req, res) => {
+  const { gridSize } = req.body;
+
+  const latestGame = await Game.findOne({}, {}, { sort: { date: -1 } });
+
+  if (!latestGame) {
+    return res.status(400).json({ message: 'No game scheduled.' });
+  }
+
+  latestGame.gridSize = gridSize;
+  latestGame.save();
+
+  res.status(200).json({ message: 'Grid size updated successfully.' });
+});
+
 
 module.exports = router;
