@@ -1,64 +1,16 @@
 const express = require('express');
 const router = express.Router();
-const googleAuth = require('../dal/google-auth.dal.js');
-const passport = require('passport');
-const GoogleOAuth2Strategy = require('passport-google-oauth').OAuth2Strategy;
 const dotenv = require('dotenv');
 const path = require('path');
 const envPath = path.join(__dirname, '..', '.env');
 dotenv.config({ path: envPath });
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
 const User = require('../dal/models/user.js')
-const Game = require('../dal/models/game-schedule')
+const schedule = require('../dal/models/schedule.js')
 const twilio = require('twilio');
 const twilioConfig = require('../twilioConfig');
-const cron = require('node-cron');
-
-
-let userProfile;
-
-passport.use(
-  new GoogleOAuth2Strategy(
-    {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: process.env.CALLBACK_URL,
-    },
-    function (accessToken, refreshToken, profile, done) {
-      userProfile = profile;
-      return done(null, userProfile);
-    }
-  )
-);
-const authenticateToken = (req, res, next) => {
-  const token = req.header('Authorization');
-
-  if (!token) {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-
-  try {
-    const decoded = verifyToken(token);
-    req.user = decoded;
-    next();
-  } catch (error) {
-    return res.status(403).json({ error: 'Token is not valid' });
-  }
-};
-
-function generateOTP() {
-  return Math.floor(100000 + Math.random() * 900000).toString();
-}
-
-//mobile verification
-const client = twilio(twilioConfig.accountSid, twilioConfig.authToken);
-
-
-
 
 // for splash screen
-router.get('/', authenticateToken, async (req, res) => {
+router.get('/', async (req, res) => {
   // res.render('home');
   // you should use a client-side approach, such as JavaScript on the front-end, to trigger the redirection automatically after some time
 })
@@ -79,186 +31,133 @@ router.get('/setting', async (req, res) => {
 })
 
 
-//for login
+//for login using mobile number
 router.get('/login', async (req, res) => {
   // res.render('login');
 })
 
-//for signup
-router.get('/signup', async (req, res) => {
-  // res.render('signup');
+const client = twilio(twilioConfig.accountSid, twilioConfig.authToken);
+
+let number; 
+
+router.post('/login', (req, res) => {
+  const { mobileNumber } = req.body;
+  number = mobileNumber;
+
+  // Generate OTP
+  let otp = Math.floor(100000 + Math.random() * 900000).toString();
+
+  // Send OTP using Twilio
+  client.messages.create({
+    body: `Your OTP is: ${otp}`,
+    to: mobileNumber,  // Replace with your phone number
+    from: twilioConfig.phoneNumber // Replace with your Twilio number
+  })
+    .then((message) => {
+      console.log(message.sid);
+      res.render('match-otp', { OTP: otp, });
+      //check OTP verification in frontend
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    });
+});
+
+router.post('/resendOTP', (req, res) => {
+  let otp = Math.floor(100000 + Math.random() * 900000).toString();
+  client.messages.create({
+    body: `Your OTP is: ${otp}`,
+    to: number,  
+    from: twilioConfig.phoneNumber 
+  })
+    .then((message) => {
+      console.log(message.sid);
+      res.render('match-otp', { OTP: otp, });
+      //check OTP verification in frontend
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    });
+});
+
+
+
+router.get('/logout', (req, res) => {
+  try {
+    req.logout();
+    res.redirect('/login');
+  } catch (err) {
+    res.status(400).send({ message: 'Failed to logout user' });
+  }
+});
+
+
+router.get('/profile/:mobileNumber', async (req, res) => {
+  const { mobileNumber } = req.params;
+
+  try {
+    const user = await User.findOne({ mobileNumber });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Render a page with user details
+    res.render('profile', { user });
+    //use user to show the details in frontend
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+
+router.put('/profile', async (req, res) => {
+  const { mobileNumber, imageUrl, username, birthday } = req.body;
+
+  try {
+    const user = await User.findOne({ mobileNumber });
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Calculate the user's age based on their birthday
+    const age = new Date().getFullYear() - new Date(birthday).getFullYear();
+
+    // Check if the user is less than 18 years old
+    if (age < 18) {
+      // Redirect to another API
+      return res.redirect('/less-age');
+    }
+
+    user.imageUrl = imageUrl;
+    user.username = username;
+    user.birthday = birthday;
+
+    await user.save();
+    res.redirect('/profile/:mobileNumber');
+
+    res.json({ message: 'Profile updated successfully', user });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: 'Server error' });
+  }
+});
+
+router.get('/less-age', (req, res) => {
+  res.render('less-age')
 })
 
 
-/// Temporary storage for OTP
-const otpStorage = {};
-
-// Signup route
-router.post('/signup', async (req, res) => {
-  const { email, password, googleId } = req.body;
-
-  try {
-    const existingUser = await User.findOne({ email });
-
-    if (existingUser) {
-      if (existingUser.googleId) {
-        return res.status(400).json({ error: 'Email already exists with Google OAuth' });
-      }
-
-      if (!existingUser.password) {
-        const hashedPassword = await bcrypt.hash(password, 10);
-        existingUser.password = hashedPassword;
-        await existingUser.save();
-
-        const token = jwt.sign({ userId: existingUser._id }, process.env.SESSION_SECRET, {
-          expiresIn: '1h',
-        });
-
-        return res.status(200).json({ message: 'Email already exists, password set successfully' });
-      }
-
-      return res.status(400).json({ error: 'Email already exists with a password' });
-    }
-
-    const otp = generateOTP();
-    const mobileNumber = req.body.mobileNumber; // You need to pass the mobile number from the frontend
-
-    await client.messages.create({
-      body: `Your verification code is: ${otp}`,
-      to: mobileNumber,
-      from: twilioConfig.phoneNumber,
-    });
-
-    otpStorage[email] = otp;
-
-    res.status(200).json({ message: 'OTP sent for verification' });
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-// Verify OTP route
-router.post('/verifyotp', async (req, res) => {
-  const { email, otp } = req.body;
-
-  try {
-    const user = await User.findOne({ email });
-
-    if (!user) {
-      return res.status(400).json({ error: 'User not found' });
-    }
-
-    if (otp === otpStorage[email]) {
-      const hashedPassword = await bcrypt.hash(user.password, 10);
-      user.password = hashedPassword;
-      delete otpStorage[email];
-      await user.save();
-
-      const token = jwt.sign({ userId: user._id }, process.env.SESSION_SECRET, {
-        expiresIn: '1h',
-      });
-
-      res.status(200).json({ message: 'OTP verified successfully' });
-    } else {
-      res.status(400).json({ error: 'Invalid OTP' });
-    }
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: 'Server error' });
-  }
-});
-
-router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
-
-  const user = await User.findOne({ email });
-
-  if (!user) {
-    return res.status(401).json({ error: 'Invalid email or password' });
-  }
-
-  const isPasswordValid = await bcrypt.compare(password, user.password);
-
-  if (!isPasswordValid) {
-    return res.status(401).json({ error: 'Invalid email or password' });
-  }
-
-  const token = jwt.sign({ userId: user._id }, process.env.SESSION_SECRET, {
-    expiresIn: '1h',
-  });
-
-  // res.render('profile', { user: user });
-});
+router.get('/home', (req, res) => {
+  const Schedule = schedule.findOne({});
+  res.render('home', { slot: Schedule });
+})
 
 
-router.get('/auth/google', passport.authenticate('google', { scope: ['profile', 'email'] }), (req, res) => {
-  if (req.session && req.session.passport) {
-    res.send({
-      message: 'You are allowed.',
-      'display Name': req.session.passport.user.displayName,
-    });
-  } else {
-    res.json({
-      message: 'You are not allowed to access this API endpoint',
-      error: 'You are not signed in.',
-    });
-  }
-});
-
-router.get('/auth/google/callback', passport.authenticate('google', { failureRedirect: '/auth/google/error' }), (req, res) => {
-  res.redirect('/success');
-}
-);
-
-router.get('/success', async (req, res) => {
-  if (req.isAuthenticated()) { // Check if user is authenticated
-    const { failure, success } = await googleAuth.registerWithGoogle(userProfile);
-    if (failure) console.log('Google user already exists in DB..');
-    else console.log('Registering new Google user..');
-    // res.render('profile', { user: userProfile });
-  } else {
-    res.redirect('/error'); // Redirect to an error page
-  }
-});
-
-router.get('/error', (req, res) => res.send('Error logging in via Google..'));
-
-router.get('/signout', (req, res) => {
-  try {
-    req.session.destroy(function (err) {
-      console.log('session destroyed.');
-    });
-    res.render('login');
-  } catch (err) {
-    res.status(400).send({ message: 'Failed to sign out user' });
-  }
-});
-
-
-
-
-// Schedule the game every Tuesday at 7 PM
-cron.schedule('0 19 * * 2', () => {
-  const newGame = new Game({
-    date: new Date(),
-    maxPlayers: 5000,
-    gridSize: 5, // Set a default grid size (5x5)
-    registeredPlayers: [],
-  });
-
-  newGame.registeredPlayers.forEach((player) => {
-    player.grid = generateRandomGrid(newGame.gridSize);
-  });
-
-  newGame.save((err, game) => {
-    if (err) {
-      console.error(err);
-    } else {
-      console.log(`New game scheduled for ${game.date}`);
-    }
-  });
-});
 
 
 // Generate a random m*m grid of unique numbers within a specified range
@@ -290,45 +189,73 @@ function generateRandomGrid(m, min = 1, max = 99) {
 
 
 router.post('/register', async (req, res) => {
-  const { email } = req.body;
-  const latestGame = await Game.findOne({}, {}, { sort: { date: -1 } });
-
-  if (!latestGame) {
-    return res.status(400).json({ message: 'No game scheduled.' });
+  try {
+    const Schedule = await schedule.findOne({});
+    if (Schedule.registered <= 5000) {
+      const user = await User.findOne({ mobileNumber: req.body.mobileNumber });
+      if (user) {
+        user.booleanVariable = true;
+        user.grid = generateRandomGrid(Schedule.gridSize);
+        await user.save();
+        Schedule.registered++;
+        await Schedule.save();
+        res.status(200).json({ message: 'Registration successful' });
+      } else {
+        res.status(404).json({ message: 'User not found' });
+      }
+    } else {
+      res.status(400).json({ message: 'Registration limit reached' });
+    }
+  } catch (err) {
+    res.status(500).json({ message: err.message });
   }
+});
 
-  if (latestGame.registeredPlayers.length >= latestGame.maxPlayers) {
-    return res.status(400).json({ message: 'Participation is full for this week. You can watch live to win a prize.' });
+// Admin API endpoint to update the grid size, date and time
+app.put('/admin/update', async (req, res) => {
+  try {
+    const { date, month, day, time, gridSize } = req.body;
+    // Update the values in your database
+    await schedule.updateOne({}, { date, month, day, time, gridSize });
+    if (gridSize) {
+      // If only gridSize is changed
+      await User.updateMany(
+        { booleanVariable: true },
+        { $set: { grid:  generateRandomGrid(schedule.gridSize)} }
+      );
+    } else {
+      // If any other value is updated
+      await User.updateMany({}, { $set: { booleanVariable: false } });
+      //redirect
+    }
+    res.send('Values updated successfully');
+  } catch (err) {
+    res.status(500).send(err.message);
   }
+});
 
-  const grid = generateRandomGrid(5); // Generates a 5x5 grid by default
-
-  latestGame.registeredPlayers.push({
-    email,
-    grid,
-  });
-
-  latestGame.save();
-
-  res.status(200).json({ message: 'Successfully registered for the game.' });
+router.get('/enter-the-game', async (req, res) => {
+  try {
+    const { mobileNumber } = req.query;
+    // Find the user document associated with the mobile number
+    const user = await User.findOne({ mobileNumber: mobileNumber });
+    if (!user) {
+      return res.status(404).send('User not found');
+    }
+    res.render('enter-the-game', {user:user, });
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
 });
 
 
-// Admin API endpoint to update the grid size
-app.put('/admin/updateGridSize', async (req, res) => {
-  const { gridSize } = req.body;
-
-  const latestGame = await Game.findOne({}, {}, { sort: { date: -1 } });
-
-  if (!latestGame) {
-    return res.status(400).json({ message: 'No game scheduled.' });
+//generate a number 
+router.get('/randomNumbers', (req, res) => {
+  let numbers = [];
+  for(let i = 0; i < 99; i++) {
+      numbers.push(Math.floor(Math.random() * 99) + 1);
   }
-
-  latestGame.gridSize = gridSize;
-  latestGame.save();
-
-  res.status(200).json({ message: 'Grid size updated successfully.' });
+  res.render('randomNumbers', {Numbers:numbers,});
 });
-
 
 module.exports = router;

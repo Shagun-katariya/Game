@@ -1,8 +1,6 @@
 const express = require('express');
 const app = express();
-const session = require('express-session');
 const routes = require('./routes/main');
-const passport = require('passport');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
 require('dotenv').config();
@@ -14,24 +12,6 @@ app.use(bodyParser.json());
 
 app.set('view engine', 'ejs');
 
-
-app.use(
-  session({
-    resave: false,
-    saveUninitialized: true,
-    secret: process.env.SESSION_SECRET,
-  })
-);
-
-app.use(passport.initialize());
-app.use(passport.session());
-
-passport.serializeUser(function (user, cb) {
-  cb(null, user);
-});
-passport.deserializeUser(function (obj, cb) {
-  cb(null, obj);
-});
 
 
 app.use('', routes);
