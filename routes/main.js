@@ -4,10 +4,12 @@ const dotenv = require('dotenv');
 const path = require('path');
 const envPath = path.join(__dirname, '..', '.env');
 dotenv.config({ path: envPath });
-const User = require('../dal/models/user.js')
-const schedule = require('../dal/models/schedule.js')
+const User = require('../models/user.js');
+const schedule = require('../models/schedule.js');
+const admin = require('../models/admin.js');
 const twilio = require('twilio');
 const twilioConfig = require('../twilioConfig');
+
 
 // for splash screen
 router.get('/', async (req, res) => {
@@ -38,75 +40,69 @@ router.get('/login', async (req, res) => {
 
 const client = twilio(twilioConfig.accountSid, twilioConfig.authToken);
 
-let number; 
-
-router.post('/login', (req, res) => {
+router.post('/userlogin', (req, res) => {
   const { mobileNumber } = req.body;
-  number = mobileNumber;
+  req.session.mobileNumber = mobileNumber;
 
-  // Generate OTP
-  let otp = Math.floor(100000 + Math.random() * 900000).toString();
-
-  // Send OTP using Twilio
-  client.messages.create({
-    body: `Your OTP is: ${otp}`,
-    to: mobileNumber,  // Replace with your phone number
-    from: twilioConfig.phoneNumber // Replace with your Twilio number
-  })
-    .then((message) => {
-      console.log(message.sid);
-      res.render('match-otp', { OTP: otp, });
-      //check OTP verification in frontend
-    })
-    .catch((error) => {
-      console.error(error);
-      res.status(500).send({ status: 'error', message: error.message });
-    });
-});
-
-router.post('/resendOTP', (req, res) => {
-  let otp = Math.floor(100000 + Math.random() * 900000).toString();
-  client.messages.create({
-    body: `Your OTP is: ${otp}`,
-    to: number,  
-    from: twilioConfig.phoneNumber 
-  })
-    .then((message) => {
-      console.log(message.sid);
-      res.render('match-otp', { OTP: otp, });
-      //check OTP verification in frontend
-    })
-    .catch((error) => {
-      console.error(error);
-      res.status(500).send({ status: 'error', message: error.message });
-    });
-});
-
-
-
-router.get('/logout', (req, res) => {
-  try {
-    req.logout();
-    res.redirect('/login');
-  } catch (err) {
-    res.status(400).send({ message: 'Failed to logout user' });
+  if (!mobileNumber) {
+    return res.status(400).json({ message: 'Mobile number is required' });
   }
+
+  let otp = Math.floor(100000 + Math.random() * 900000).toString();
+  req.session.otp = otp;
+
+  client.messages.create({
+    body: `Your OTP is: ${otp}`,
+    to: mobileNumber,
+    from: twilioConfig.phoneNumber
+  })
+    .then((message) => {
+      console.log(message.sid);
+      res.render('match-otp');
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    });
 });
 
 
-router.get('/profile/:mobileNumber', async (req, res) => {
-  const { mobileNumber } = req.params;
+router.get('/admin', (req, res) => {
+  res.render('/admin');
+})
+
+router.post('/admin/login', async (req, res) => {
+  const { mobileNumber } = req.body;
+  req.session.mobileNumber = mobileNumber;
+
+  if (!mobileNumber) {
+    return res.status(400).json({ message: 'Mobile number is required' });
+  }
 
   try {
-    const user = await User.findOne({ mobileNumber });
+    const doc = await admin.findOne(mobileNumber);
 
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!doc) {
+      return res.status(404).json({ message: 'You are not an admin' });
     }
 
-    // Render a page with user details
-    res.render('profile', { user });
-    //use user to show the details in frontend
+    let otp = Math.floor(100000 + Math.random() * 900000).toString();
+    req.session.otp = otp;
+
+    client.messages.create({
+      body: `Your OTP is: ${otp}`,
+      to: mobileNumber,
+      from: twilioConfig.phoneNumber
+    })
+      .then((message) => {
+        console.log(message.sid);
+        res.render('match-otp');
+      })
+      .catch((error) => {
+        console.error(error);
+        res.status(500).json({ message: error.message });
+      });
+
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -114,22 +110,84 @@ router.get('/profile/:mobileNumber', async (req, res) => {
 });
 
 
-router.put('/profile', async (req, res) => {
-  const { mobileNumber, imageUrl, username, birthday } = req.body;
+router.get('/match-otp', (req, res) => {
+  res.render('match-otp');
+})
+
+
+router.post('/resendOTP', (req, res) => {
+  let otp = Math.floor(100000 + Math.random() * 900000).toString();
+  req.session.otp = otp;
+
+  client.messages.create({
+    body: `Your OTP is: ${otp}`,
+    to: req.session.mobileNumber,
+    from: twilioConfig.phoneNumber
+  })
+    .then((message) => {
+      console.log(message.sid);
+      res.render('match-otp');
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    });
+});
+
+router.post('/verify-otp', (req, res) => {
+  const { otp } = req.body;
+
+  if (req.session.otp === otp) {
+    req.session.otp = null;
+    res.redirect('/profile');
+  } else {
+    res.status(400).send({ status: 'error', message: 'Invalid OTP' });
+  }
+});
+
+
+
+router.get('/logout', (req, res) => {
+  req.session.destroy((err) => {
+    if (err) {
+      return console.log(err);
+    }
+    res.render('/login');
+  });
+});
+
+
+
+router.get('/profile', async (req, res) => {
+  const mobileNumber = req.session.mobileNumber;
 
   try {
-    const user = await User.findOne({ mobileNumber });
+    const user = await User.findOne(mobileNumber);
 
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
+    res.render('profile', { user });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
 
-    // Calculate the user's age based on their birthday
+
+router.put('/profile', async (req, res) => {
+  const { imageUrl, username, birthday } = req.body;
+  const mobileNumber = req.session.mobileNumber;
+
+  if (!imageUrl || !username || !birthday) {
+    return res.status(400).json({ message: 'Image URL, username and birthday are required' });
+  }
+
+  try {
+    const user = await User.findOne(mobileNumber);
     const age = new Date().getFullYear() - new Date(birthday).getFullYear();
 
-    // Check if the user is less than 18 years old
     if (age < 18) {
-      // Redirect to another API
       return res.redirect('/less-age');
     }
 
@@ -138,14 +196,14 @@ router.put('/profile', async (req, res) => {
     user.birthday = birthday;
 
     await user.save();
-    res.redirect('/profile/:mobileNumber');
-
-    res.json({ message: 'Profile updated successfully', user });
+    res.redirect('/profile');
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
   }
 });
+
+
 
 router.get('/less-age', (req, res) => {
   res.render('less-age')
@@ -160,9 +218,9 @@ router.get('/home', (req, res) => {
 
 
 
-// Generate a random m*m grid of unique numbers within a specified range
-function generateRandomGrid(m, min = 1, max = 99) {
+async function generateRandomGrid(m, min = 1, max = 99) {
   const numbers = [];
+  const Schedule = await schedule.findOne({});
 
   for (let i = min; i <= max; i++) {
     numbers.push(i);
@@ -175,11 +233,20 @@ function generateRandomGrid(m, min = 1, max = 99) {
 
   const grid = [];
   let index = 0;
-  for (let i = 0; i < m; i++) {
+  for (let i = 0; i < m; i++) 
+  {
     const row = [];
-    for (let j = 0; j < m; j++) {
-      row.push(numbers[index]);
-      index++;
+    for (let j = 0; j < m; j++) 
+    {
+      if(i === Math.floor(m/2) && j === Math.floor(m/2))
+      {
+        row.push(Schedule.sponsorship);
+      }
+      else
+      {
+        row.push(numbers[index]);
+        index++;
+      }
     }
     grid.push(row);
   }
@@ -187,19 +254,21 @@ function generateRandomGrid(m, min = 1, max = 99) {
   return grid;
 }
 
-
 router.post('/register', async (req, res) => {
   try {
-    const Schedule = await schedule.findOne({});
-    if (Schedule.registered <= 5000) {
-      const user = await User.findOne({ mobileNumber: req.body.mobileNumber });
+    const Schedule = await schedule.findOne();
+    if (schedule.registered <= 5000) {
+      const user = await User.findOne(req.session.mobileNumber);
       if (user) {
+        if (user.booleanVariable == true) {
+          return res.status(404).json({ message: 'User already registered' });
+        }
         user.booleanVariable = true;
         user.grid = generateRandomGrid(Schedule.gridSize);
         await user.save();
         Schedule.registered++;
         await Schedule.save();
-        res.status(200).json({ message: 'Registration successful' });
+        res.redirect('set-reminder');
       } else {
         res.status(404).json({ message: 'User not found' });
       }
@@ -211,51 +280,76 @@ router.post('/register', async (req, res) => {
   }
 });
 
-// Admin API endpoint to update the grid size, date and time
-app.put('/admin/update', async (req, res) => {
+router.get('/set-reminder', async (req, res) => {
+  res.render()
+})
+
+
+router.put('/admin/schedule-update', async (req, res) => {
   try {
-    const { date, month, day, time, gridSize } = req.body;
-    // Update the values in your database
-    await schedule.updateOne({}, { date, month, day, time, gridSize });
-    if (gridSize) {
-      // If only gridSize is changed
-      await User.updateMany(
-        { booleanVariable: true },
-        { $set: { grid:  generateRandomGrid(schedule.gridSize)} }
-      );
-    } else {
-      // If any other value is updated
-      await User.updateMany({}, { $set: { booleanVariable: false } });
-      //redirect
+    const { date, month, day, time, gridSize, sponsorship} = req.body;
+    const currentDateTime = new Date();
+    
+    if (!date || !month || !day || !time || !gridSize) {
+      return res.status(400).json({ message: 'Date, month, day, time and grid size are required' });
     }
-    res.send('Values updated successfully');
+
+    let Schedule = await schedule.findOne();
+
+    if (!Schedule) {
+      Schedule = new schedule(date, month, day, 0, time, gridSize, sponsorship);
+      await Schedule.save();
+      const users = await User.find({ booleanVariable: true });
+      for (let user of users) {
+        user.grid = generateRandomGrid(gridSize);
+        await user.save();
+      }
+    }
+
+    const registeredDateTime = new Date(`${Schedule.date}-${Schedule.month}-${Schedule.day} ${Schedule.time}`);
+
+    if (currentDateTime > registeredDateTime) {
+      const users = await User.find({});
+      for (let user of users) {
+        user.booleanVariable = false;
+        await user.save();
+      }
+    }
+    else {
+      return res.status(400).json({ message: 'You can update after the game' });
+    }
+    
+    Schedule.date = date;
+    Schedule.month = month;
+    Schedule.day = day;
+    Schedule.time = time;
+    Schedule.gridSize = gridSize;
+    
+    await Schedule.save();
+    
+    res.render('admin');
+    
   } catch (err) {
-    res.status(500).send(err.message);
-  }
+     console.error(err);
+     res.status(500).send(err.message);
+   }
 });
+
+
 
 router.get('/enter-the-game', async (req, res) => {
   try {
-    const { mobileNumber } = req.query;
-    // Find the user document associated with the mobile number
-    const user = await User.findOne({ mobileNumber: mobileNumber });
-    if (!user) {
-      return res.status(404).send('User not found');
+    let numbers = [];
+    for (let i = 0; i < 99; i++) {
+      numbers.push(Math.floor(Math.random() * 99) + 1);
     }
-    res.render('enter-the-game', {user:user, });
+    res.render('enter-the-game', { Numbers: numbers, });
   } catch (err) {
     res.status(500).send(err.message);
   }
 });
 
-
-//generate a number 
-router.get('/randomNumbers', (req, res) => {
-  let numbers = [];
-  for(let i = 0; i < 99; i++) {
-      numbers.push(Math.floor(Math.random() * 99) + 1);
-  }
-  res.render('randomNumbers', {Numbers:numbers,});
-});
-
 module.exports = router;
+
+
+
