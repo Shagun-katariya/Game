@@ -1,1 +1,2 @@
-npm i express-session firebase firebase-admin --save
+npm i express-session firebase 
+npm i firebase-admin --save-dev

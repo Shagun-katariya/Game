@@ -1,10 +1,12 @@
-const connect = require('firebase-admin');
-const serviceAccount = require('../private.json');
+const admin = require('firebase-admin');
+const serviceAccount = require('../firebaseconfig.json');
 
-connect.initializeApp({
-  credential: connect.credential.cert(serviceAccount)
+admin.initializeApp({
+  credential: admin.credential.cert(serviceAccount),
+  databaseURL: serviceAccount.databaseURL, 
 });
 
-const db = connect.firestore();
+const db = admin.firestore();
+const realtimeDb = admin.database(); 
 
-module.exports = db;
+module.exports = { firestore: db, realtimeDb }; 

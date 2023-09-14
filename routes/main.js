@@ -233,17 +233,13 @@ async function generateRandomGrid(m, min = 1, max = 99) {
 
   const grid = [];
   let index = 0;
-  for (let i = 0; i < m; i++) 
-  {
+  for (let i = 0; i < m; i++) {
     const row = [];
-    for (let j = 0; j < m; j++) 
-    {
-      if(i === Math.floor(m/2) && j === Math.floor(m/2))
-      {
+    for (let j = 0; j < m; j++) {
+      if (i === Math.floor(m / 2) && j === Math.floor(m / 2)) {
         row.push(Schedule.sponsorship);
       }
-      else
-      {
+      else {
         row.push(numbers[index]);
         index++;
       }
@@ -285,45 +281,13 @@ router.get('/set-reminder', async (req, res) => {
 })
 
 
-let generatedNumbers = [];
 
-router.get('/generate', (req, res) => {
-  let number;
-  do {
-    number = Math.floor(Math.random() * 99) + 1;
-  } while (generatedNumbers.includes(number));
-  
-  generatedNumbers.push(number);
-  
-  admin.database().ref('/game').set({ number });
-  
-  res.send({ number });
-});
-
-// // Initialize Firebase
-// var config = {
-//   apiKey: "<API_KEY>",
-//   authDomain: "<PROJECT_ID>.firebaseapp.com",
-//   databaseURL: "https://<DATABASE_NAME>.firebaseio.com",
-// };
-// firebase.initializeApp(config);
-
-// // Get a reference to the database service
-// var database = firebase.database();
-
-// // Listen for changes in /game
-// database.ref('/game').on('value', (snapshot) => {
-//   const data = snapshot.val();
-  
-//   // Update the game page with the new number
-//   document.getElementById('number').textContent = data.number;
-// });
 
 router.get('/enter-the-game', async (req, res) => {
   const mobileNumber = req.session.mobileNumber;
   const user = await User.findOne(mobileNumber);
   try {
-    res.render('enter-the-game', {user: user, });
+    res.render('enter-the-game', { user: user, });
   } catch (err) {
     res.status(500).send(err.message);
   }
@@ -365,6 +329,7 @@ router.post('/stop-game', async (req, res) => {
 //       } 
 //     }
 // });
+
 
 module.exports = router;
 

@@ -4,6 +4,7 @@ class Admin {
   constructor(mobileNumber, gameStatus) {
     this.mobileNumber = mobileNumber;
     this.gameStatus = gameStatus || 'ongoing'; // 'ongoing', 'stopped'
+    this.usedNumbers = []; // Array to store used numbers
   }
 
   async save() {
@@ -36,6 +37,19 @@ class Admin {
     } catch (error) {
       console.error(error);
     }
+  }
+
+  generateUniqueRandomNumber() {
+    const maxNumber = 99;
+    let randomNum;
+
+    do {
+      randomNum = Math.floor(Math.random() * maxNumber) + 1;
+    } while (this.usedNumbers.includes(randomNum));
+
+    this.usedNumbers.push(randomNum);
+
+    return randomNum;
   }
 }
 
