@@ -281,73 +281,90 @@ router.post('/register', async (req, res) => {
 });
 
 router.get('/set-reminder', async (req, res) => {
-  res.render()
+  res.render('set-reminder')
 })
 
 
-router.put('/admin/schedule-update', async (req, res) => {
-  try {
-    const { date, month, day, time, gridSize, sponsorship} = req.body;
-    const currentDateTime = new Date();
-    
-    if (!date || !month || !day || !time || !gridSize) {
-      return res.status(400).json({ message: 'Date, month, day, time and grid size are required' });
-    }
+let generatedNumbers = [];
 
-    let Schedule = await schedule.findOne();
-
-    if (!Schedule) {
-      Schedule = new schedule(date, month, day, 0, time, gridSize, sponsorship);
-      await Schedule.save();
-      const users = await User.find({ booleanVariable: true });
-      for (let user of users) {
-        user.grid = generateRandomGrid(gridSize);
-        await user.save();
-      }
-    }
-
-    const registeredDateTime = new Date(`${Schedule.date}-${Schedule.month}-${Schedule.day} ${Schedule.time}`);
-
-    if (currentDateTime > registeredDateTime) {
-      const users = await User.find({});
-      for (let user of users) {
-        user.booleanVariable = false;
-        await user.save();
-      }
-    }
-    else {
-      return res.status(400).json({ message: 'You can update after the game' });
-    }
-    
-    Schedule.date = date;
-    Schedule.month = month;
-    Schedule.day = day;
-    Schedule.time = time;
-    Schedule.gridSize = gridSize;
-    
-    await Schedule.save();
-    
-    res.render('admin');
-    
-  } catch (err) {
-     console.error(err);
-     res.status(500).send(err.message);
-   }
+router.get('/generate', (req, res) => {
+  let number;
+  do {
+    number = Math.floor(Math.random() * 99) + 1;
+  } while (generatedNumbers.includes(number));
+  
+  generatedNumbers.push(number);
+  
+  admin.database().ref('/game').set({ number });
+  
+  res.send({ number });
 });
 
+// // Initialize Firebase
+// var config = {
+//   apiKey: "<API_KEY>",
+//   authDomain: "<PROJECT_ID>.firebaseapp.com",
+//   databaseURL: "https://<DATABASE_NAME>.firebaseio.com",
+// };
+// firebase.initializeApp(config);
 
+// // Get a reference to the database service
+// var database = firebase.database();
+
+// // Listen for changes in /game
+// database.ref('/game').on('value', (snapshot) => {
+//   const data = snapshot.val();
+  
+//   // Update the game page with the new number
+//   document.getElementById('number').textContent = data.number;
+// });
 
 router.get('/enter-the-game', async (req, res) => {
+  const mobileNumber = req.session.mobileNumber;
+  const user = await User.findOne(mobileNumber);
   try {
-    let numbers = [];
-    for (let i = 0; i < 99; i++) {
-      numbers.push(Math.floor(Math.random() * 99) + 1);
-    }
-    res.render('enter-the-game', { Numbers: numbers, });
+    res.render('enter-the-game', {user: user, });
   } catch (err) {
     res.status(500).send(err.message);
   }
 });
+
+
+router.post('/winner', async (req, res) => {
+  try {
+    const user = await User.findOne(req.session.mobileNumber);
+    if (user) {
+      await user.winGame();
+      res.status(200).send('User has won the game and their mobile number has been added to the admin database.');
+    } else {
+      res.status(404).send('User not found.');
+    }
+  } catch (error) {
+    console.error(error);
+    res.status(500).send('An error occurred.');
+  }
+});
+
+
+router.post('/stop-game', async (req, res) => {
+  const admin = await admin.findOne(req.session.mobileNumber);
+  if (admin) {
+    await admin.stopGame();
+    res.send({ message: 'Game stopped.' });
+  } else {
+    res.status(404).send({ message: 'Admin not found.' });
+  }
+});
+
+
+// db.collection('game').doc('status')
+//   .onSnapshot((doc) => {
+//     if (doc.data().gameStopped) {
+//       if (user.status === 'loser') {
+//         window.location.href = '/loser-page';
+//       } 
+//     }
+// });
 
 module.exports = router;
 
