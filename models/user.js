@@ -7,8 +7,8 @@ class User {
     this.imageUrl = imageUrl;
     this.username = username;
     this.birthday = birthday;
-    this.grid = grid || [[]];
-    this.status = status || 'loser'; 
+    this.grid = grid || [];
+    this.status = status || 'loser';
   }
 
   async save() {
@@ -16,18 +16,35 @@ class User {
       if (!this.mobileNumber) {
         throw new Error('Mobile number is required');
       }
-      await db.collection('users').doc(this.mobileNumber).set(this);
+
+      const userObject = this.toJSON();
+
+      await db.collection('users').doc(this.mobileNumber).set(userObject);
     } catch (error) {
       console.error(error);
     }
   }
 
+
   static async findOne(mobileNumber) {
     try {
       const doc = await db.collection('users').doc(mobileNumber).get();
-      return doc.exists ? new User(doc.data()) : null;
+      if (doc.exists) {
+        return new User(
+          doc.data().mobileNumber,
+          doc.data().booleanVariable,
+          doc.data().imageUrl,
+          doc.data().username,
+          doc.data().birthday,
+          doc.data().grid,
+          doc.data().status
+        );
+      } else {
+        return null;
+      }
     } catch (error) {
       console.error(error);
+      throw new Error('Error finding user');
     }
   }
 
@@ -37,10 +54,24 @@ class User {
         throw new Error('Mobile number is required');
       }
       this.status = "winner";
-      await db.collection('users').doc(this.mobileNumber).update(this);
+      const userObject = this.toJSON();
+      delete userObject.mobileNumber;
+      await db.collection('users').doc(this.mobileNumber).update(userObject);
     } catch (error) {
       console.error(error);
     }
+  }
+  
+  toJSON() {
+    return {
+      mobileNumber: this.mobileNumber,
+      booleanVariable: this.booleanVariable,
+      imageUrl: this.imageUrl,
+      username: this.username,
+      birthday: this.birthday,
+      grid: this.grid,
+      status: this.status,
+    };
   }
 }
 

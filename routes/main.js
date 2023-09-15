@@ -40,12 +40,20 @@ router.get('/login', async (req, res) => {
 
 const client = twilio(twilioConfig.accountSid, twilioConfig.authToken);
 
-router.post('/userlogin', (req, res) => {
+
+router.post('/usersignup', async (req, res) => {
   const { mobileNumber } = req.body;
   req.session.mobileNumber = mobileNumber;
 
+
   if (!mobileNumber) {
     return res.status(400).json({ message: 'Mobile number is required' });
+  }
+
+  const existingUser = await User.findOne(mobileNumber);
+
+  if (existingUser) {
+    return res.status(400).json({ message: 'User already exists' });
   }
 
   let otp = Math.floor(100000 + Math.random() * 900000).toString();
@@ -58,7 +66,104 @@ router.post('/userlogin', (req, res) => {
   })
     .then((message) => {
       console.log(message.sid);
-      res.render('match-otp');
+      res.status(200).send({ message: "otp sent" });
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    });
+});
+
+router.post('/usersignup/verify-otp', async (req, res) => {
+  const { otp } = req.body;
+  if (req.session.otp == otp) {
+    const mobileNumber = req.session.mobileNumber;
+    req.session.otp = null;
+    const user = new User(
+      mobileNumber,
+      false,
+      '',
+      '',
+      '',
+      [],
+      'loser'
+    );
+    try {
+      await user.save();
+      res.status(200).send({ message: "User signup successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    }
+  } else {
+    res.status(400).send({ status: 'error', message: 'Invalid OTP' });
+  }
+});
+
+
+
+router.post('/userlogin', async(req, res) => {
+  const { mobileNumber } = req.body;
+  req.session.mobileNumber = mobileNumber;
+
+
+  if (!mobileNumber) {
+    return res.status(400).json({ message: 'Mobile number is required' });
+  }
+
+  const existingUser = await User.findOne(mobileNumber);
+
+  if (!existingUser) {
+    return res.status(400).json({ message: 'User not exists' });
+  }
+
+
+  let otp = Math.floor(100000 + Math.random() * 900000).toString();
+  req.session.otp = otp;
+
+  client.messages.create({
+    body: `Your OTP is: ${otp}`,
+    to: req.session.mobileNumber,
+    from: twilioConfig.phoneNumber
+  })
+    .then((message) => {
+      console.log(message.sid);
+      res.status(200).send({ message: "otp sent" });
+    })
+    .catch((error) => {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    });
+});
+
+router.post('/userlogin/verify-otp', async (req, res) => {
+  const { otp } = req.body;
+
+  if (req.session.otp === otp) {
+    req.session.otp = null;
+    try {
+      res.status(200).send({ message: "User login successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    }
+  } else {
+    res.status(400).send({ status: 'error', message: 'Invalid OTP' });
+  }
+});
+
+router.post('/resendOTP', (req, res) => {
+  let otp = Math.floor(100000 + Math.random() * 900000).toString();
+  req.session.otp = otp;
+
+  client.messages.create({
+    body: `Your OTP is: ${otp}`, 
+    to: req.session.mobileNumber,
+    from: twilioConfig.phoneNumber
+  })
+    .then((message) => {
+      console.log(message.sid);
+      res.status(200).send({ message: "Otp sent" });
     })
     .catch((error) => {
       console.error(error);
@@ -67,11 +172,12 @@ router.post('/userlogin', (req, res) => {
 });
 
 
+
 router.get('/admin', (req, res) => {
   res.render('/admin');
 })
 
-router.post('/admin/login', async (req, res) => {
+router.post('/admin-login', async (req, res) => {
   const { mobileNumber } = req.body;
   req.session.mobileNumber = mobileNumber;
 
@@ -91,12 +197,12 @@ router.post('/admin/login', async (req, res) => {
 
     client.messages.create({
       body: `Your OTP is: ${otp}`,
-      to: mobileNumber,
+      to: req.session.mobileNumber,
       from: twilioConfig.phoneNumber
     })
       .then((message) => {
         console.log(message.sid);
-        res.render('match-otp');
+        res.status(200).send({ message: "otp sent" });
       })
       .catch((error) => {
         console.error(error);
@@ -109,41 +215,26 @@ router.post('/admin/login', async (req, res) => {
   }
 });
 
-
-router.get('/match-otp', (req, res) => {
-  res.render('match-otp');
-})
-
-
-router.post('/resendOTP', (req, res) => {
-  let otp = Math.floor(100000 + Math.random() * 900000).toString();
-  req.session.otp = otp;
-
-  client.messages.create({
-    body: `Your OTP is: ${otp}`,
-    to: req.session.mobileNumber,
-    from: twilioConfig.phoneNumber
-  })
-    .then((message) => {
-      console.log(message.sid);
-      res.render('match-otp');
-    })
-    .catch((error) => {
-      console.error(error);
-      res.status(500).send({ status: 'error', message: error.message });
-    });
-});
-
-router.post('/verify-otp', (req, res) => {
+router.post('/adminlogin/verify-otp', async (req, res) => {
   const { otp } = req.body;
 
-  if (req.session.otp === otp) {
+  if (req.session.otp == otp) {
     req.session.otp = null;
-    res.redirect('/profile');
+    try {
+      res.status(200).send({ message: "Admin login successfully" });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send({ status: 'error', message: error.message });
+    }
   } else {
     res.status(400).send({ status: 'error', message: 'Invalid OTP' });
   }
 });
+
+
+router.get('/match-otp', (req, res) => {
+  res.render('match-otp');
+})
 
 
 
@@ -152,7 +243,7 @@ router.get('/logout', (req, res) => {
     if (err) {
       return console.log(err);
     }
-    res.render('/login');
+    res.status(200).send({ message: "Logout successfully" });
   });
 });
 
@@ -163,11 +254,11 @@ router.get('/profile', async (req, res) => {
 
   try {
     const user = await User.findOne(mobileNumber);
-
+    console.log(user);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.render('profile', { user });
+    res.status(200).json({ message: "user profile" });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ message: 'Server error' });
@@ -175,7 +266,7 @@ router.get('/profile', async (req, res) => {
 });
 
 
-router.put('/profile', async (req, res) => {
+router.put('/profile-update', async (req, res) => {
   const { imageUrl, username, birthday } = req.body;
   const mobileNumber = req.session.mobileNumber;
 
@@ -196,7 +287,7 @@ router.put('/profile', async (req, res) => {
     user.birthday = birthday;
 
     await user.save();
-    res.redirect('/profile');
+    res.status(200).json({ message: "user" });
   } catch (err) {
     console.error(err);
     res.status(500).json({ message: 'Server error' });
@@ -210,12 +301,10 @@ router.get('/less-age', (req, res) => {
 })
 
 
-router.get('/home', (req, res) => {
-  const Schedule = schedule.findOne({});
+router.get('/home', async (req, res) => {
+  const Schedule = await schedule.findOne({});
   res.render('home', { slot: Schedule });
 })
-
-
 
 
 async function generateRandomGrid(m, min = 1, max = 99) {
@@ -252,19 +341,19 @@ async function generateRandomGrid(m, min = 1, max = 99) {
 
 router.post('/register', async (req, res) => {
   try {
-    const Schedule = await schedule.findOne();
-    if (schedule.registered <= 5000) {
+    const Schedule = await schedule.findOne({});
+    if (Schedule.registered <= 5000) {
       const user = await User.findOne(req.session.mobileNumber);
       if (user) {
         if (user.booleanVariable == true) {
           return res.status(404).json({ message: 'User already registered' });
         }
         user.booleanVariable = true;
-        user.grid = generateRandomGrid(Schedule.gridSize);
+        // user.grid = generateRandomGrid(Schedule.gridSize);
         await user.save();
         Schedule.registered++;
         await Schedule.save();
-        res.redirect('set-reminder');
+        res.status(200).json({ message: "succesfully register" });
       } else {
         res.status(404).json({ message: 'User not found' });
       }
@@ -311,9 +400,9 @@ router.post('/winner', async (req, res) => {
 
 
 router.post('/stop-game', async (req, res) => {
-  const admin = await admin.findOne(req.session.mobileNumber);
+  const Admin = await admin.findOne(req.session.mobileNumber);
   if (admin) {
-    await admin.stopGame();
+    await Admin.stopGame();
     res.send({ message: 'Game stopped.' });
   } else {
     res.status(404).send({ message: 'Admin not found.' });

@@ -4,7 +4,7 @@ class Admin {
   constructor(mobileNumber, gameStatus) {
     this.mobileNumber = mobileNumber;
     this.gameStatus = gameStatus || 'ongoing'; // 'ongoing', 'stopped'
-    this.usedNumbers = []; // Array to store used numbers
+    this.usedNumbers = []; 
   }
 
   async save() {
@@ -12,7 +12,10 @@ class Admin {
       if (!this.mobileNumber) {
         throw new Error('Mobile number is required');
       }
-      await db.collection('admins').doc(this.mobileNumber).set(this);
+
+      const adminObject = this.toJSON(); 
+
+      await db.collection('admins').doc(this.mobileNumber).set(adminObject);
     } catch (error) {
       console.error(error);
     }
@@ -21,9 +24,18 @@ class Admin {
   static async findOne(mobileNumber) {
     try {
       const doc = await db.collection('admins').doc(mobileNumber).get();
-      return doc.exists ? new Admin(doc.data()) : null;
+      if (doc.exists) {
+        return new Admin(
+          doc.data().mobileNumber,
+          doc.data().gameStatus,
+          doc.data().usedNumbers,
+        );
+      } else {
+        return null;
+      }
     } catch (error) {
       console.error(error);
+      throw new Error('Error finding admin');
     }
   }
 
@@ -33,7 +45,9 @@ class Admin {
         throw new Error('Mobile number is required');
       }
       this.gameStatus = 'stopped';
-      await db.collection('game').doc('status').set({ gameStopped: true });
+      const gameObject = this.toJSON();
+      delete gameObject.mobileNumber;
+      await db.collection('admins').doc(this.mobileNumber).update(gameObject);
     } catch (error) {
       console.error(error);
     }
@@ -50,6 +64,14 @@ class Admin {
     this.usedNumbers.push(randomNum);
 
     return randomNum;
+  }
+
+  toJSON() {
+    return {
+      mobileNumber: this.mobileNumber,
+      gameStatus: this.gameStatus,
+      usedNumbers: this.usedNumbers,
+    };
   }
 }
 
