@@ -1,4 +1,4 @@
-const db = require('./db');
+const { firestore } = require('./db');
 
 class GameSchedule {
   constructor(date, month, day, registered, time, gridSize, sponsorship = "Free") {
@@ -17,7 +17,7 @@ class GameSchedule {
         throw new Error('Date, month and day are required');
       }
       const scheduleObject = this.toJSON();
-      await db.collection('gameSchedules').doc(`${this.date}-${this.month}-${this.day}`).set(scheduleObject);
+      await firestore.collection('gameSchedules').doc(`${this.date}-${this.month}-${this.day}`).set(scheduleObject);
     } catch (error) {
       console.error(error);
     }
@@ -25,7 +25,7 @@ class GameSchedule {
 
   static async findOne() {
     try {
-      const doc = await db.collection('gameSchedules').limit(1).get();
+      const doc = await firestore.collection('gameSchedules').limit(1).get();
       if (!doc.empty) {
         return new GameSchedule(
           doc.docs[0].data().date,

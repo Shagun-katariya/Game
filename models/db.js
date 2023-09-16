@@ -3,8 +3,13 @@ const serviceAccount = require('../private.json');
 
 admin.initializeApp({
   credential: admin.credential.cert(serviceAccount),
+  databaseURL: 'https://bingo-66659-default-rtdb.firebaseio.com',
 });
 
-const db = admin.firestore();
+const firestore = admin.firestore();
+const realtimeDb = admin.database();
 
-module.exports = db; 
+module.exports = {
+  firestore,
+  realtimeDb,
+};

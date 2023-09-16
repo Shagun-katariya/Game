@@ -9,6 +9,7 @@ const schedule = require('../models/schedule.js');
 const admin = require('../models/admin.js');
 const twilio = require('twilio');
 const twilioConfig = require('../twilioConfig');
+const { realtimeDb } = require('../models/db.js');
 
 
 // for splash screen
@@ -323,21 +324,19 @@ async function generateRandomGrid(m, min = 1, max = 99) {
   const grid = [];
   let index = 0;
   for (let i = 0; i < m; i++) {
-    const row = [];
     for (let j = 0; j < m; j++) {
       if (i === Math.floor(m / 2) && j === Math.floor(m / 2)) {
-        row.push(Schedule.sponsorship);
-      }
-      else {
-        row.push(numbers[index]);
+        grid.push(Schedule.sponsorship);
+      } else {
+        grid.push(numbers[index]);
         index++;
       }
     }
-    grid.push(row);
   }
 
   return grid;
 }
+
 
 router.post('/register', async (req, res) => {
   try {
@@ -349,7 +348,7 @@ router.post('/register', async (req, res) => {
           return res.status(404).json({ message: 'User already registered' });
         }
         user.booleanVariable = true;
-        // user.grid = generateRandomGrid(Schedule.gridSize);
+        user.grid = await generateRandomGrid(Schedule.gridSize);
         await user.save();
         Schedule.registered++;
         await Schedule.save();
@@ -398,26 +397,31 @@ router.post('/winner', async (req, res) => {
   }
 });
 
-
 router.post('/stop-game', async (req, res) => {
-  const Admin = await admin.findOne(req.session.mobileNumber);
-  if (admin) {
-    await Admin.stopGame();
-    res.send({ message: 'Game stopped.' });
+  const adminUser = await admin.findOne(req.session.mobileNumber);
+
+  if (adminUser) {
+    try {
+      const users = await User.find();
+      for (const user of users) {
+        user.booleanVariable = false;
+        await user.save();
+      }
+
+      const realtimeGameStatusRef = realtimeDb.ref('gameStatus');
+      await realtimeGameStatusRef.set('stopped');
+
+      console.log('Game stopped. booleanVariable updated for all users.');
+      res.send({ message: 'Game stopped.' });
+    } catch (error) {
+      console.error(error);
+      res.status(500).send({ message: 'Error updating game status and booleanVariable.' });
+    }
   } else {
     res.status(404).send({ message: 'Admin not found.' });
   }
 });
 
-
-// db.collection('game').doc('status')
-//   .onSnapshot((doc) => {
-//     if (doc.data().gameStopped) {
-//       if (user.status === 'loser') {
-//         window.location.href = '/loser-page';
-//       } 
-//     }
-// });
 
 
 

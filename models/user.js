@@ -1,4 +1,4 @@
-const db = require('./db');
+const { firestore } = require('./db');
 
 class User {
   constructor(mobileNumber, booleanVariable, imageUrl, username, birthday, grid, status) {
@@ -7,7 +7,7 @@ class User {
     this.imageUrl = imageUrl;
     this.username = username;
     this.birthday = birthday;
-    this.grid = grid || [];
+    this.grid = [];
     this.status = status || 'loser';
   }
 
@@ -19,16 +19,42 @@ class User {
 
       const userObject = this.toJSON();
 
-      await db.collection('users').doc(this.mobileNumber).set(userObject);
+      await firestore.collection('users').doc(this.mobileNumber).set(userObject);
     } catch (error) {
       console.error(error);
+    }
+  }
+
+  static async find() {
+    try {
+      const snapshot = await firestore.collection('users').get();
+      const users = [];
+      
+      snapshot.forEach((doc) => {
+        const userData = doc.data();
+        const user = new User(
+          userData.mobileNumber,
+          userData.booleanVariable,
+          userData.imageUrl,
+          userData.username,
+          userData.birthday,
+          userData.grid,
+          userData.status
+        );
+        users.push(user);
+      });
+
+      return users;
+    } catch (error) {
+      console.error(error);
+      throw new Error('Error fetching users');
     }
   }
 
 
   static async findOne(mobileNumber) {
     try {
-      const doc = await db.collection('users').doc(mobileNumber).get();
+      const doc = await firestore.collection('users').doc(mobileNumber).get();
       if (doc.exists) {
         return new User(
           doc.data().mobileNumber,
@@ -56,11 +82,12 @@ class User {
       this.status = "winner";
       const userObject = this.toJSON();
       delete userObject.mobileNumber;
-      await db.collection('users').doc(this.mobileNumber).update(userObject);
+      await firestore.collection('users').doc(this.mobileNumber).update(userObject);
     } catch (error) {
       console.error(error);
     }
   }
+
   
   toJSON() {
     return {
