@@ -301,6 +301,10 @@ router.get('/less-age', (req, res) => {
   res.render('less-age')
 })
 
+router.get('/rewards', (req, res) => {
+  res.render('rewards')
+})
+
 
 router.get('/home', async (req, res) => {
   const Schedule = await schedule.findOne({});
