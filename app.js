@@ -5,7 +5,6 @@ const routes = require('./routes/main');
 const bodyParser = require('body-parser');
 const session = require('express-session');
 
-
 app.use(session({
   secret: '3287e97828d7b3870992132b6d830f37baa7c41d789315f2e2f41ee4d077c074',
   resave: false,
@@ -18,10 +17,11 @@ app.use(bodyParser.json());
 
 app.set('view engine', 'ejs');
 
-const port = process.env.PORT || 5000;
+const port = process.env.PORT || 7000;
 
 app.use('', routes);
 
 app.listen(port, () =>
   console.log(`Server is listening on port ${port}...`)
 );
+

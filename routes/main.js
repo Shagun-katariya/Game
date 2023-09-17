@@ -14,7 +14,7 @@ const { realtimeDb } = require('../models/db.js');
 
 // for splash screen
 router.get('/', async (req, res) => {
-  // res.render('home');
+  res.render('home');
   // you should use a client-side approach, such as JavaScript on the front-end, to trigger the redirection automatically after some time
 })
 router.get('/languages', async (req, res) => {
