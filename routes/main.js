@@ -8,7 +8,7 @@ const User = require('../models/user.js');
 const schedule = require('../models/schedule.js');
 const admin = require('../models/admin.js');
 const twilio = require('twilio');
-const twilioConfig = require('../twilioConfig');
+const twilioConfig = require('../twilio');
 const { realtimeDb } = require('../models/db.js');
 
 
