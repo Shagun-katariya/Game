@@ -17,6 +17,9 @@ router.get('/', async (req, res) => {
   // res.render('home');
   // you should use a client-side approach, such as JavaScript on the front-end, to trigger the redirection automatically after some time
 })
+router.get('/languages', async (req, res) => {
+  // res.render('lanuages');
+})
 
 //for Main menu screen
 router.get('/main-menu', async (req, res) => {
@@ -35,7 +38,15 @@ router.get('/setting', async (req, res) => {
 
 
 //for login using mobile number
-router.get('/login', async (req, res) => {
+router.get('/userlogin', async (req, res) => {
+  // res.render('login');
+})
+//for login using mobile number
+router.get('/usersignup', async (req, res) => {
+  // res.render('login');
+})
+//for login using mobile number
+router.get('/adminlogin', async (req, res) => {
   // res.render('login');
 })
 
@@ -173,11 +184,6 @@ router.post('/resendOTP', (req, res) => {
 });
 
 
-
-router.get('/admin', (req, res) => {
-  res.render('/admin');
-})
-
 router.post('/admin-login', async (req, res) => {
   const { mobileNumber } = req.body;
   req.session.mobileNumber = mobileNumber;
@@ -233,11 +239,6 @@ router.post('/adminlogin/verify-otp', async (req, res) => {
 });
 
 
-router.get('/match-otp', (req, res) => {
-  res.render('match-otp');
-})
-
-
 
 router.get('/logout', (req, res) => {
   req.session.destroy((err) => {
@@ -255,7 +256,6 @@ router.get('/profile', async (req, res) => {
 
   try {
     const user = await User.findOne(mobileNumber);
-    console.log(user);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -363,13 +363,6 @@ router.post('/register', async (req, res) => {
     res.status(500).json({ message: err.message });
   }
 });
-
-router.get('/set-reminder', async (req, res) => {
-  res.render('set-reminder')
-})
-
-
-
 
 router.get('/enter-the-game', async (req, res) => {
   const mobileNumber = req.session.mobileNumber;
