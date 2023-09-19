@@ -1,9 +1,9 @@
 const { firestore } = require('./db');
 
 class Admin {
-  constructor(mobileNumber, gameStatus) {
+  constructor(mobileNumber, usedNumbers) {
     this.mobileNumber = mobileNumber;
-    this.usedNumbers = []; 
+    this.usedNumbers = usedNumbers || []; 
   }
 
   async save() {
@@ -26,7 +26,6 @@ class Admin {
       if (doc.exists) {
         return new Admin(
           doc.data().mobileNumber,
-          doc.data().gameStatus,
           doc.data().usedNumbers,
         );
       } else {
@@ -55,7 +54,6 @@ class Admin {
   toJSON() {
     return {
       mobileNumber: this.mobileNumber,
-      gameStatus: this.gameStatus,
       usedNumbers: this.usedNumbers,
     };
   }
