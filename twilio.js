@@ -1,5 +1,5 @@
 module.exports = {
     accountSid: 'ACe9dd8c300c3483828999f6c08f312f87',
-    authToken: '0f28837629c313dc8ed5ffc7107a89ca',
+    authToken: '4a5917f4cdb7460cedd723ffd9b84bcd',
     phoneNumber: '+12512374913',
 }

@@ -38,7 +38,7 @@ class Admin {
   }
 
 
-  generateUniqueRandomNumber() {
+  generateUniqueRandomNumber() {  
     const maxNumber = 99;
     let randomNum;
 

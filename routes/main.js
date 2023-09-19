@@ -133,7 +133,7 @@ router.post('/userlogin', async (req, res) => {
 
   let otp = Math.floor(100000 + Math.random() * 900000).toString();
   req.session.otp = otp;
-
+  console.log(otp);
   client.messages.create({
     body: `Your OTP is: ${otp}`,
     to: req.session.mobileNumber,
@@ -218,8 +218,7 @@ router.post('/admin-login', async (req, res) => {
       });
 
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: err.message });
   }
 });
 
@@ -231,7 +230,6 @@ router.post('/adminlogin/verify-otp', async (req, res) => {
     try {
       res.status(200).send({ message: "Admin login successfully" });
     } catch (error) {
-      console.error(error);
       res.status(500).send({ status: 'error', message: error.message });
     }
   } else {
@@ -260,10 +258,11 @@ router.get('/profile', async (req, res) => {
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
-    res.status(200).json({ message: "user profile" });
+
+    return res.status(200).json({ user });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ message: 'Server error' });
+    return res.status(500).json({ message: err.message });
   }
 });
 
@@ -289,27 +288,31 @@ router.put('/profile-update', async (req, res) => {
     user.birthday = birthday;
 
     await user.save();
-    res.status(200).json({ message: "user" });
+    res.status(200).json({ message: "profile updated" });
   } catch (err) {
     console.error(err);
-    res.status(500).json({ message: 'Server error' });
+    res.status(500).json({ message: err.message });
   }
 });
 
 
 
 router.get('/less-age', (req, res) => {
-  res.render('less-age')
+  res.status(200).json({ message: 'less-age screen' });
 })
 
 router.get('/rewards', (req, res) => {
-  res.render('rewards')
+  res.status(200).json({ message: 'rewards screen' });
 })
 
 
 router.get('/home', async (req, res) => {
   const Schedule = await schedule.findOne({});
-  res.render('home', { slot: Schedule });
+  if (!Schedule) {
+    return res.status(404).json({ message: 'Schedule not found' });
+  }
+
+  return res.status(200).json({ Schedule });
 })
 
 
@@ -373,7 +376,7 @@ router.get('/enter-the-game', async (req, res) => {
   const mobileNumber = req.session.mobileNumber;
   const user = await User.findOne(mobileNumber);
   try {
-    res.render('enter-the-game', { user: user, });
+    res.status(200).json({ user });
   } catch (err) {
     res.status(500).send(err.message);
   }
@@ -385,38 +388,30 @@ router.post('/winner', async (req, res) => {
     const user = await User.findOne(req.session.mobileNumber);
     if (user) {
       await user.winGame();
-      res.status(200).send('User has won the game and their mobile number has been added to the admin database.');
+      res.status(200).send('User has won the game');
     } else {
       res.status(404).send('User not found.');
     }
   } catch (error) {
-    console.error(error);
-    res.status(500).send('An error occurred.');
+    res.status(500).send(err.message);
   }
 });
 
 router.post('/stop-game', async (req, res) => {
-  const adminUser = await admin.findOne(req.session.mobileNumber);
-
-  if (adminUser) {
-    try {
-      const users = await User.find();
-      for (const user of users) {
-        user.booleanVariable = false;
-        await user.save();
-      }
-
-      const realtimeGameStatusRef = realtimeDb.ref('gameStatus');
-      await realtimeGameStatusRef.set('stopped');
-
-      console.log('Game stopped. booleanVariable updated for all users.');
-      res.send({ message: 'Game stopped.' });
-    } catch (error) {
-      console.error(error);
-      res.status(500).send({ message: 'Error updating game status and booleanVariable.' });
+  try {
+    const users = await User.find();
+    for (const user of users) {
+      user.booleanVariable = false;
+      await user.save();
     }
-  } else {
-    res.status(404).send({ message: 'Admin not found.' });
+
+    const realtimeGameStatusRef = realtimeDb.ref('gameStatus');
+    await realtimeGameStatusRef.set('stopped');
+
+    res.send({ message: 'Game stopped.' });
+  } catch (error) {
+    console.error(error);
+    res.status(500).send({ message: error.message });
   }
 });
 

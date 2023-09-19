@@ -2,9 +2,6 @@ const { firestore } = require('./db');
 
 class User {
   constructor(mobileNumber, booleanVariable, imageUrl, username, birthday, grid, status) {
-    if (!User.isValidMobileNumber(mobileNumber)) {
-      throw new Error('Mobile number must be exactly 10 digits');
-    }
     this.mobileNumber = mobileNumber;
     this.booleanVariable = booleanVariable || false;
     this.imageUrl = imageUrl;
@@ -26,12 +23,6 @@ class User {
     } catch (error) {
       console.error(error);
     }
-  }
-
-  // Add a static method to validate mobile number
-  static isValidMobileNumber(mobileNumber) {
-    const mobileNumberRegex = /^\d{10}$/;
-    return mobileNumberRegex.test(mobileNumber);
   }
 
   static async find() {
