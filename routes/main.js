@@ -1,53 +1,54 @@
 const express = require('express');
 const router = express.Router();
-const dotenv = require('dotenv');
-const path = require('path');
-const envPath = path.join(__dirname, '..', '.env');
-dotenv.config({ path: envPath });
+// const dotenv = require('dotenv');
+// const path = require('path');
+// const envPath = path.join(__dirname, '..', '.env');
+// dotenv.config({ path: envPath });
 const User = require('../models/user.js');
 const schedule = require('../models/schedule.js');
 const admin = require('../models/admin.js');
 const twilio = require('twilio');
-const twilioConfig = require('../twilio');
+const twilioConfig = require('../twilio.js');
 const { realtimeDb } = require('../models/db.js');
 
 
 // for splash screen
 router.get('/', async (req, res) => {
-  res.render('home');
-  // you should use a client-side approach, such as JavaScript on the front-end, to trigger the redirection automatically after some time
+  res.status(200).json({ message: 'splash screen' });
 })
 router.get('/languages', async (req, res) => {
-  // res.render('lanuages');
+  res.status(200).json({ message: 'languages screen' });
 })
 
 //for Main menu screen
 router.get('/main-menu', async (req, res) => {
-  // res.render('main-menu');
+  res.status(200).json({ message: 'main-menu' });
 })
 
 //for Main help button
 router.get('/help', async (req, res) => {
-  // res.render('help');
+  res.status(200).json({ message: 'help' });
 })
 
 //for Main setting 
 router.get('/setting', async (req, res) => {
-  // res.render('setting');
+  res.status(200).json({ message: 'setting' });
 })
 
 
 //for login using mobile number
 router.get('/userlogin', async (req, res) => {
-  // res.render('login');
+  res.status(200).json({ message: 'user login page' });
 })
+
 //for login using mobile number
 router.get('/usersignup', async (req, res) => {
-  // res.render('login');
+  res.status(200).json({ message: 'user signup' });
 })
+
 //for login using mobile number
 router.get('/adminlogin', async (req, res) => {
-  // res.render('login');
+  res.status(200).json({ message: 'admin login page' });
 })
 
 const client = twilio(twilioConfig.accountSid, twilioConfig.authToken);
@@ -114,7 +115,7 @@ router.post('/usersignup/verify-otp', async (req, res) => {
 
 
 
-router.post('/userlogin', async(req, res) => {
+router.post('/userlogin', async (req, res) => {
   const { mobileNumber } = req.body;
   req.session.mobileNumber = mobileNumber;
 
@@ -169,7 +170,7 @@ router.post('/resendOTP', (req, res) => {
   req.session.otp = otp;
 
   client.messages.create({
-    body: `Your OTP is: ${otp}`, 
+    body: `Your OTP is: ${otp}`,
     to: req.session.mobileNumber,
     from: twilioConfig.phoneNumber
   })

@@ -20,7 +20,7 @@
 //   <script src="https://www.gstatic.com/firebasejs/9.5.0/firebase-database-compat.js"></script>
 
 // Firebase configuration
-const firebaseConfig = require('./firebaseconfig.json');
+const firebaseConfig = require('./firebase-frontend.json');
 
 firebase.initializeApp(firebaseConfig);
 

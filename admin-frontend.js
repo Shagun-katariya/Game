@@ -1,7 +1,7 @@
 
 //frontend JS
 
-const firebaseConfig = require('./firebaseconfig.json');
+const firebaseConfig = require('./firebase-frontend.json');
 const firebase = require('firebase/app');
 require('firebase/database');
 const admin = require('./models/admin.js');

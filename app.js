@@ -1,4 +1,3 @@
-require('dotenv').config();
 const express = require('express');
 const app = express();
 const routes = require('./routes/main');
@@ -15,9 +14,8 @@ app.use(session({
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use(bodyParser.json());
 
-app.set('view engine', 'ejs');
 
-const port = process.env.PORT || 7000;
+const port = 5000;
 
 app.use('', routes);
 
