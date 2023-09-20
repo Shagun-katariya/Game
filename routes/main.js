@@ -20,6 +20,16 @@ router.get('/languages', async (req, res) => {
   res.status(200).json({ message: 'languages screen' });
 })
 
+
+router.get('/less-age', (req, res) => {
+  res.status(200).json({ message: 'less-age screen' });
+})
+
+router.get('/rewards', (req, res) => {
+  res.status(200).json({ message: 'rewards screen' });
+})
+
+
 //for Main menu screen
 router.get('/main-menu', async (req, res) => {
   res.status(200).json({ message: 'main-menu' });
@@ -49,6 +59,15 @@ router.get('/usersignup', async (req, res) => {
 //for login using mobile number
 router.get('/adminlogin', async (req, res) => {
   res.status(200).json({ message: 'admin login page' });
+})
+
+router.get('/home', async (req, res) => {
+  const Schedule = await schedule.findOne({});
+  if (!Schedule) {
+    return res.status(404).json({ message: 'Schedule not found' });
+  }
+
+  return res.status(200).json({ Schedule });
 })
 
 const client = twilio(twilioConfig.accountSid, twilioConfig.authToken);
@@ -295,25 +314,6 @@ router.put('/profile-update', async (req, res) => {
   }
 });
 
-
-
-router.get('/less-age', (req, res) => {
-  res.status(200).json({ message: 'less-age screen' });
-})
-
-router.get('/rewards', (req, res) => {
-  res.status(200).json({ message: 'rewards screen' });
-})
-
-
-router.get('/home', async (req, res) => {
-  const Schedule = await schedule.findOne({});
-  if (!Schedule) {
-    return res.status(404).json({ message: 'Schedule not found' });
-  }
-
-  return res.status(200).json({ Schedule });
-})
 
 
 async function generateRandomGrid(m, min = 1, max = 99) {
