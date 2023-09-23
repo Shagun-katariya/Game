@@ -1,7 +1,7 @@
 const { firestore } = require('./db');
 
 class User {
-  constructor(mobileNumber, booleanVariable, imageUrl, username, birthday, grid, status) {
+  constructor(mobileNumber, booleanVariable, imageUrl, username, birthday, grid, status, language) {
     this.mobileNumber = mobileNumber;
     this.booleanVariable = booleanVariable || false;
     this.imageUrl = imageUrl;
@@ -9,6 +9,7 @@ class User {
     this.birthday = birthday;
     this.grid = grid || [];
     this.status = status || 'loser';
+    this.language = language || 'English';
   }
 
   async save() {
@@ -39,7 +40,8 @@ class User {
           userData.username,
           userData.birthday,
           userData.grid,
-          userData.status
+          userData.status,
+          userData.language
         );
         users.push(user);
       });
@@ -63,7 +65,8 @@ class User {
           doc.data().username,
           doc.data().birthday,
           doc.data().grid,
-          doc.data().status
+          doc.data().status,
+          doc.data().language
         );
       } else {
         return null;
@@ -98,6 +101,7 @@ class User {
       birthday: this.birthday,
       grid: this.grid,
       status: this.status,
+      language: this.language,
     };
   }
 }

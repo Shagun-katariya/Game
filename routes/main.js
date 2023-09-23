@@ -12,10 +12,10 @@ const twilioConfig = require('../twilio.js');
 const { realtimeDb } = require('../models/db.js');
 
 
-// for splash screen
 router.get('/', async (req, res) => {
   res.status(200).json({ message: 'splash screen' });
 })
+
 router.get('/languages', async (req, res) => {
   res.status(200).json({ message: 'languages screen' });
 })
@@ -202,6 +202,23 @@ router.post('/resendOTP', (req, res) => {
       res.status(500).send({ status: 'error', message: error.message });
     });
 });
+
+router.post('/languages', async (req, res) => {
+  const { language } = req.body;
+  const mobileNumber = req.session.mobileNumber;
+
+  try {
+    const user = await User.findOne(mobileNumber);
+    user.language = language;
+    await user.save();
+    res.status(200).json({ message: "language updated" });
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ message: err.message });
+  }
+  
+})
+
 
 
 router.post('/admin-login', async (req, res) => {
